@@ -1,67 +1,53 @@
-#github-oauth-box{
-    margin: 5px;
+body {
+    width: 280px;
+    margin: 0;
+    padding: 14px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f2328;
+    background: #ffffff;
 }
-#token-box {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 5px;
+h1 {
+    font-size: 15px;
+    margin: 0 0 4px;
 }
-#github-oauth-button-msg {
-    margin-left: 5px;
+.tag {
+    margin: 0 0 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1a7f37;
 }
-#github-oauth-button {
-    width: 100%;
-    height: 36px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #FFFFFF;
-    
-    padding: 5px 12px;
-    border: 1px solid;
-    border-radius: 6px;
-    vertical-align: middle;
-    cursor: pointer;
+p {
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 8px 0;
 }
-.logout {
-    background-color: #2DA44E;
-    border-color: #8b949e;
+ul {
+    margin: 8px 0;
+    padding-left: 18px;
 }
-.login {
-    background-color: #D0D7DE;
-    border-color: #D0D7DE;
+li {
+    font-size: 12.5px;
+    line-height: 1.7;
 }
-
-#token-input-box {
-    width: 180px;
-    height: 24px;
-    background-color: #F6F8FA;
-    padding: 5px 12px;
-    border: 1px solid #D0D7DE;
-    border-radius: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+code {
+    background: #f6f8fa;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 11.5px;
 }
-#token-input {
-    border: 0px;
-    vertical-align: middle;
-    line-height: 20px;
-    color: #24292F;
-    font-size: 14px;
-    outline: none;
-    background-color: #F6F8FA;
+.kbd {
+    display: inline-block;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 600;
 }
-#token-button {
-    height: 36px;
-    color: #FFFFFF;
-    background-color: #2DA44E;
-    padding: 8px 12px;
-    border: 1px solid;
-    border-radius: 6px;
-    border-color: #8b949e;
-    vertical-align: middle;
-    cursor: pointer;
-    margin-left: 5px;
+.note {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #eaeef2;
+    font-size: 11.5px;
+    color: #57606a;
 }

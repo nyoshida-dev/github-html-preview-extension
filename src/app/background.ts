@@ -1,82 +1,96 @@
-import { addContextMenusOnClickedListener, addMessageListener, addOnCommandListener, addRuntimeInstalledListener, addTabUpdatedListener, createContextMenu, createTab, executeScript, executeScriptFile, getActiveTab, getData, getRedirectUrl, launchWebAuthFlow, queryInTab, removeTab, setData, updateTab } from '../shared/chrome';
-import { getGithubOauthToken, getProxyToken } from '../shared/api';
-import { MessageType, StorageType } from '../shared/type';
-import { getHtmlPreviewPageUrl, parseGithubUrl } from '../core/auth-service';
+import { MessageType } from '../shared/type';
 
-addTabUpdatedListener(
-    (url: string, tabId: number) => {
-        if (url.startsWith("https://github.com/") && url.endsWith(".html")) {
-            executeScriptFile(tabId, "html-page-content.js");
-        } else {
-            executeScript(tabId, () => {
-                document.getElementById("html-preview")?.parentElement?.remove()
-                document.getElementById("preview-button-error-alert")?.remove()
-            });
-        }
+const PREVIEW_PAGE = 'preview/preview.html';
+const TAB_MAP_PREFIX = '__ghptab_'; // maps a preview tab id -> its storage key
+const PREVIEW_PREFIX = 'ghp_';      // self-contained HTML payloads
+
+const isPreviewablePage = (url?: string): boolean =>
+    !!url
+    && url.startsWith("https://github.com/")
+    && url.split("?")[0].endsWith(".html")
+    && url.split("/")[5] === "blob";
+
+// Remove any preview payloads / tab mappings left over from a previous session.
+const sweepStalePreviews = async () => {
+    const all = await chrome.storage.local.get(null);
+    const stale = Object.keys(all).filter(k => k.startsWith(PREVIEW_PREFIX) || k.startsWith(TAB_MAP_PREFIX));
+    if (stale.length) await chrome.storage.local.remove(stale);
+};
+
+chrome.runtime.onStartup.addListener(sweepStalePreviews);
+
+// (Re)inject the content script as the user navigates GitHub's SPA, and clean up
+// the injected button when leaving an HTML file page.
+chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
+    const url = tab.url;
+    if (!url) return;
+    if (url.startsWith("https://github.com/") && url.split("?")[0].endsWith(".html")) {
+        chrome.scripting.executeScript({ target: { tabId }, files: ["html-page-content.js"] }).catch(() => {});
+    } else if (url.startsWith("https://github.com/")) {
+        chrome.scripting.executeScript({
+            target: { tabId },
+            func: () => {
+                document.getElementById("html-preview")?.parentElement?.remove();
+                document.getElementById("preview-button-error-alert")?.remove();
+            }
+        }).catch(() => {});
     }
-);
-
-addRuntimeInstalledListener(() => {
-    createContextMenu("Preview Html", "https://github.com/**.html");
-});
-  
-addContextMenusOnClickedListener(async (info, tab) => {
-    const { user, repo } = parseGithubUrl(info.pageUrl);
-    createTab(await getHtmlPreviewPageUrl(info.pageUrl, user, repo), tab);
 });
 
-addOnCommandListener(async (command) => {
-    if(command === "preview") {
-        const tab = await getActiveTab();
-        const url = tab.url!;
+// Delete a preview's stored HTML once its tab is closed.
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    const mapKey = `${TAB_MAP_PREFIX}${tabId}`;
+    const data = await chrome.storage.local.get(mapKey);
+    const previewId = data[mapKey];
+    if (typeof previewId === "string") await chrome.storage.local.remove([previewId, mapKey]);
+});
 
-        if (url.startsWith("https://github.com/") && url.endsWith(".html")) {
-            const { user, repo } = parseGithubUrl(url);
-            createTab(await getHtmlPreviewPageUrl(url, user, repo), tab);
-        }
+chrome.runtime.onInstalled.addListener(() => {
+    sweepStalePreviews();
+    chrome.contextMenus.create({
+        id: "preview",
+        title: "Preview HTML",
+        contexts: ["all"],
+        documentUrlPatterns: ["https://github.com/**.html"]
+    });
+});
+
+// The keyboard command and context menu both ask the content script to build the
+// preview, because the fetch must run first-party (with the GitHub login cookie).
+chrome.contextMenus.onClicked.addListener((_info, tab) => {
+    if (tab && tab.id != null) chrome.tabs.sendMessage(tab.id, { action: MessageType.DO_PREVIEW });
+});
+
+chrome.commands.onCommand.addListener(async (command) => {
+    if (command !== "preview") return;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id != null && isPreviewablePage(tab.url)) {
+        chrome.tabs.sendMessage(tab.id, { action: MessageType.DO_PREVIEW });
     }
 });
 
-addMessageListener(
-    (request, callback) => {
+// The content script has already written the (possibly large) self-contained
+// HTML to storage.local under `id`; we only receive the id and open the isolated
+// preview tab to render it.
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request && request.action === MessageType.OPEN_PREVIEW && typeof request.id === "string") {
         (async () => {
-            if(request.action === MessageType.START_OAUTH) {
-                const redirectUrl = getRedirectUrl("github");
-                await launchWebAuthFlow(
-                    `https://api.dohyeon5626.com/github-html-preview/github-oauth/authorize?redirectUri=${redirectUrl}`,
-                    async (responseUrl) => {
-                        if (responseUrl) {
-                            const code = new URL(responseUrl).searchParams.get('code');
-                            if (code) {
-                                const token = await getGithubOauthToken(code, redirectUrl);
-                                await setData({[StorageType.GITHUB_OAUTH_TOKEN]: token});
-                                callback(null);
-                            }
-                        }
-                    }
-                );
-            } else if(request.action === MessageType.REMOVE_OTHER_PAGE) {
-                queryInTab((tabs) => {
-                    tabs.filter(tab => tab.url?.startsWith("https://github-html-preview.dohyeon5626.com/")).forEach(tab => {
-                        if(!tab.active) removeTab(tab.id!);
-                    });
+            try {
+                const opener = sender.tab;
+                const tab = await chrome.tabs.create({
+                    url: chrome.runtime.getURL(`${PREVIEW_PAGE}?id=${request.id}`),
+                    ...(opener ? { index: opener.index + 1, openerTabId: opener.id } : {})
                 });
-            } else if (request.action === MessageType.UPDATE_PAGE) {
-                queryInTab((tabs) => {
-                    tabs.filter(tab => tab.url?.startsWith("https://github-html-preview.dohyeon5626.com/")).forEach(async tab => {
-                        if (tab.active) {
-                            const url = tab.url!.split("?")[1].split("&")[0];
-                            const { user, repo } = parseGithubUrl(url);
-                            updateTab(tab.id!, await getHtmlPreviewPageUrl(url, user, repo));
-                        } else {
-                            removeTab(tab.id!);
-                        }
-                    });
-                });
-                callback(null);
+                // Remember which payload belongs to this tab so we can clean it up
+                // when the tab is closed.
+                if (tab.id != null) await chrome.storage.local.set({ [`${TAB_MAP_PREFIX}${tab.id}`]: request.id });
+                sendResponse({ ok: true });
+            } catch (e) {
+                console.error("[ghp] open preview failed:", e);
+                sendResponse({ ok: false, error: String(e) });
             }
         })();
-        
-        return true;
+        return true; // keep the message channel open for the async response
     }
-)
+    return undefined;
+});

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>HTML Preview</title>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #frame { border: 0; display: block; width: 100%; height: 100vh; }
+        #message { font-family: -apple-system, sans-serif; padding: 24px; color: #57606a; }
+    </style>
+</head>
+<body>
+    <!-- Manifest-sandboxed page: runs in an opaque origin, exempt from the
+         extension CSP, so the previewed HTML (and its scripts) execute while
+         staying isolated from this page, github.com, and the GitHub session. -->
+    <iframe id="frame" src="sandbox.html"></iframe>
+    <script src="../preview.js"></script>
+</body>
+</html>

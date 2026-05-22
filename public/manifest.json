@@ -1,11 +1,11 @@
 {
-    "name": "Github Html Preview",
-    "description": "Instantly preview HTML files on GitHub with our Chrome extension. One-click preview and easy access!",
+    "name": "Github Html Preview (Local)",
+    "description": "Preview HTML files on GitHub fully locally. Content and your GitHub session never leave your browser.",
     "version": "5.7",
     "manifest_version": 3,
 
-    "permissions": ["storage", "scripting", "contextMenus", "identity"],
-    "host_permissions" : ["https://github.com/*", "https://github-html-preview.dohyeon5626.com/*"],
+    "permissions": ["storage", "unlimitedStorage", "scripting", "contextMenus"],
+    "host_permissions" : ["https://github.com/*", "https://*.githubusercontent.com/*"],
 
     "icons": {
       "16": "icon/16.png",
@@ -17,26 +17,26 @@
     "web_accessible_resources": [
       {
         "resources": ["icon/*.png"],
-        "matches": ["<all_urls>"]
+        "matches": ["https://github.com/*"]
       }
     ],
 
     "action": {
       "default_popup": "popup/popup.html"
     },
-    
+
     "background": {
         "service_worker": "background.js"
+    },
+
+    "sandbox": {
+        "pages": ["preview/sandbox.html"]
     },
 
     "content_scripts": [
       {
           "matches": ["https://github.com/*.html"],
           "js": ["html-page-content.js"]
-      },
-      {
-        "matches": ["https://github-html-preview.dohyeon5626.com/*"],
-        "js": ["preview-page-content.js"]
       }
     ],
 

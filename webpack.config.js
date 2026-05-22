@@ -5,9 +5,9 @@ module.exports = {
    mode: "production",
    entry: {
       "background": ["./src/app/background.ts"],
-      "popup": ["./src/app/popup.ts"],
       "html-page-content": ["./src/app/html-page-content.ts"],
-      "preview-page-content": ["./src/app/preview-page-content.ts"]
+      "preview": ["./src/app/preview.ts"],
+      "sandbox": ["./src/app/sandbox.ts"]
    },
    output: {
       path: path.join(__dirname, "dist"),
